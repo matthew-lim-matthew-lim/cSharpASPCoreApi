@@ -9,7 +9,10 @@ namespace ThinksterASPCoreApi.DatabaseEntities
 {
     public class Planet
     {
+        // Used by the entity framework to make sure that the id increments
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+
+        // [Required] tag is for POST data validation, that the user gives valid data
         public int Id { get; set; }
         [Required]
         public string Name { get; set; }

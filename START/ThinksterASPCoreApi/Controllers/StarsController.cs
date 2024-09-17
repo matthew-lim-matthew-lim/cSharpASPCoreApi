@@ -26,7 +26,14 @@ namespace ThinksterASPCoreApi.Controllers
         [HttpGet]
         public async Task<IActionResult> Get(bool returnFact = false)
         {
-                return null;
+            try {
+                List<Star> result = await _spaceRepository.GetAllStarsAsync(returnFact);
+                return Ok(result);
+            }
+            catch { 
+                return StatusCode(StatusCodes.Status500InternalServerError, "Could not reach the database"); 
+            }
+                
         }
 
         // Exercise 2: The GET method below is currently returning null.
@@ -39,7 +46,12 @@ namespace ThinksterASPCoreApi.Controllers
         {
             try
             {
-                Star result = null;
+                Star result = await _spaceRepository.GetStarAsync(id, returnFact);
+
+                if (result == null)
+                {
+                    return NotFound();
+                }
 
                 return Ok(result);
             }
@@ -56,23 +68,61 @@ namespace ThinksterASPCoreApi.Controllers
         [HttpPost]
         public async Task<IActionResult> Post([FromBody]Star star)
         {
-            _spaceRepository.AddStar(star);
-            bool result = await _spaceRepository.SaveChangesAsync();
-            return Created($"api/stars/{star.Id}", star);
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest("Model is missing required data");
+                }
+                _spaceRepository.AddStar(star);
+                bool result = await _spaceRepository.SaveChangesAsync();
+                if (result)
+                {
+                    return Created($"api/stars/{star.Id}", star);
+                }
+                
+            }
+            catch (Exception e)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                                    "Could not reach the database" + e.Message);
+            }
+
+            return BadRequest();
+            
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Put(int id, [FromBody]Star newStarData)
         {
-            var existingStar = await _spaceRepository.GetStarAsync(id, true);
 
-            existingStar.AgeInMillions = newStarData.AgeInMillions;
-            existingStar.Name = newStarData.Name;
-            existingStar.Fact = newStarData.Fact;
 
-            await _spaceRepository.SaveChangesAsync();
+            try
+            {
+                if (id != newStarData.Id)
+                {
+                    return BadRequest("Id's do not match");
+                }
+                var existingStar = await _spaceRepository.GetStarAsync(id, true);
+                if (existingStar == null)
+                {
+                    return BadRequest($"Could not find Star with id {id}");
+                }
 
-            return NoContent();
+                existingStar.AgeInMillions = newStarData.AgeInMillions;
+                existingStar.Name = newStarData.Name;
+                existingStar.Fact = newStarData.Fact;
+
+                await _spaceRepository.SaveChangesAsync();
+
+                return NoContent();
+            }
+            catch (Exception e)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    "Could not reach the database" + e.Message);
+            }
+
         }
 
         // Exercise 4: The DELETE method below is currently working. However, 
@@ -87,7 +137,7 @@ namespace ThinksterASPCoreApi.Controllers
                 var starToDelete = await _spaceRepository.GetStarAsync(id);
                 if (starToDelete == null)
                 {
-                    return NotFound();
+                    return NotFound($"Star with id {id} could not be found");
                 }
 
                 _spaceRepository.DeleteStar(starToDelete);
@@ -100,7 +150,7 @@ namespace ThinksterASPCoreApi.Controllers
             }
             catch (Exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError);
+                return StatusCode(StatusCodes.Status500InternalServerError, "Could not reach the database");
             }
             return BadRequest();
         }
